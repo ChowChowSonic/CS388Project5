@@ -1,34 +1,18 @@
 package com.codepath.articlesearch
 
-import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.widget.Button
+import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.codepath.articlesearch.databinding.ActivityMainBinding
-import com.codepath.asynchttpclient.AsyncHttpClient
-import com.codepath.asynchttpclient.callback.JsonHttpResponseHandler
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import okhttp3.Headers
-import org.json.JSONException
-
-fun createJson() = Json {
-    isLenient = true
-    ignoreUnknownKeys = true
-    useAlternativeNames = false
-}
-
-private const val TAG = "MainActivity/"
-private const val SEARCH_API_KEY = BuildConfig.API_KEY
-private const val ARTICLE_SEARCH_URL =
-    "https://api.nytimes.com/svc/search/v2/articlesearch.json?api-key=${SEARCH_API_KEY}"
 
 class MainActivity : AppCompatActivity() {
-    private val articles = mutableListOf<DisplayArticle>()
+    private val articles = mutableListOf<Day>()
     private lateinit var articlesRecyclerView: RecyclerView
     private lateinit var binding: ActivityMainBinding
 
@@ -39,67 +23,67 @@ class MainActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
 
-        articlesRecyclerView = findViewById(R.id.articles)
-        val articleAdapter = ArticleAdapter(this, articles)
+        articlesRecyclerView = findViewById<RecyclerView>(R.id.articles)
+        val articleAdapter = DayAdapter(this, articles)
+        articlesRecyclerView.adapter = articleAdapter
+        articlesRecyclerView.layoutManager = LinearLayoutManager(this)
         lifecycleScope.launch {
             (application as ArticleApplication).db.articleDao().getAll().collect { databaseList ->
-                databaseList.map { entity ->
-                    DisplayArticle(
-                        entity.headline,
-                        entity.articleAbstract,
-                        entity.byline,
-                        entity.mediaImageUrl
-                    )
-                }.also { mappedList ->
-                    articles.clear()
-                    articles.addAll(mappedList)
-                    articleAdapter.notifyDataSetChanged()
-                }
-            }
-        }
-        articlesRecyclerView.adapter = articleAdapter
-        articlesRecyclerView.layoutManager = LinearLayoutManager(this).also {
-            val dividerItemDecoration = DividerItemDecoration(this, it.orientation)
-            articlesRecyclerView.addItemDecoration(dividerItemDecoration)
-        }
+                println(databaseList.size)
+                if(databaseList.isNotEmpty()) {
+                    databaseList.map { entity ->
+                        Day(
+                            entity.id,
+                            entity.steps,
+                            entity.caloriesEaten,
+                            entity.sleepHrs,
+                            entity.waterGlasses
+                        )
+                    }.also { mappedList ->
+                        articles.clear()
+                        articles.addAll(mappedList)
 
-        val client = AsyncHttpClient()
-        client.get(ARTICLE_SEARCH_URL, object : JsonHttpResponseHandler() {
-            override fun onFailure(
-                statusCode: Int,
-                headers: Headers?,
-                response: String?,
-                throwable: Throwable?
-            ) {
-                Log.e(TAG, "Failed to fetch articles: $statusCode")
-            }
-
-            override fun onSuccess(statusCode: Int, headers: Headers, json: JSON) {
-                Log.i(TAG, "Successfully fetched articles: $json")
-                try {
-                    val parsedJson = createJson().decodeFromString(
-                        SearchNewsResponse.serializer(),
-                        json.jsonObject.toString()
-                    )
-                    parsedJson.response?.docs?.let { list ->
-                        lifecycleScope.launch(IO) {
-                            (application as ArticleApplication).db.articleDao().deleteAll()
-                            (application as ArticleApplication).db.articleDao().insertAll(list.map {
-                                ArticleEntity(
-                                    headline = it.headline?.main,
-                                    articleAbstract = it.abstract,
-                                    byline = it.byline?.original,
-                                    mediaImageUrl = it.mediaImageUrl
-                                )
-                            })
-                        }
                     }
-                } catch (e: JSONException) {
-                    Log.e(TAG, "Exception: $e")
                 }
             }
+        }
+        findViewById<Button>(R.id.submit).setOnClickListener{
+            lifecycleScope.launch(IO) {
+//                (application as ArticleApplication).db.articleDao().deleteAll()
 
-        })
+                val dayno = articles.size.toLong()
+                println(dayno)
+                val cals = findViewById<TextView>(R.id.cals).text.toString()
+                val steps = findViewById<TextView>(R.id.steps).text.toString()
+                val sleep = findViewById<TextView>(R.id.sleep).text.toString()
+                (application as ArticleApplication).db.articleDao().insertOne(
+                    Day(
+                        dayno,
+                        steps.toInt(),
+                        cals.toInt(),
+                        sleep.toInt(),
+                        sleep.toInt()
+                    )
+                )
+                (application as ArticleApplication).db.articleDao().getAll().collect { databaseList ->
+                    println(databaseList.size)
+                    databaseList.map { entity ->
+                        Day(
+                            entity.id,
+                            entity.steps,
+                            entity.caloriesEaten,
+                            entity.sleepHrs,
+                            entity.waterGlasses
+                        )
+                    }.also { mappedList ->
+                        articles.clear()
+                        articles.addAll(mappedList)
 
-    }
+                    }
+                }//*/
+            }
+            articleAdapter.notifyDataSetChanged()
+        }
+    }//ends OnCreate
+
 }

@@ -7,12 +7,15 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ArticleDao {
-    @Query("SELECT * FROM article_table")
-    fun getAll(): Flow<List<ArticleEntity>>
+    @Query("SELECT * FROM days")
+    fun getAll(): Flow<List<Day>>
 
     @Insert
-    fun insertAll(articles: List<ArticleEntity>)
+    fun insertAll(articles: List<Day>)
 
-    @Query("DELETE FROM article_table")
+    @Insert(entity = Day::class)
+    fun insertOne(day:Day)
+
+    @Query("DELETE FROM days")
     fun deleteAll()
 }
